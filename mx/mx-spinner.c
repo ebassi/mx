@@ -243,6 +243,43 @@ mx_spinner_paint (ClutterActor *actor)
                                       1);
 }
 
+static gboolean
+mx_spinner_get_paint_volume (ClutterActor       *self,
+                             ClutterPaintVolume *volume)
+{
+  MxWidget *widget = MX_WIDGET (self);
+  const ClutterPaintVolume *child_volume;
+  ClutterActor *actor;
+
+  clutter_paint_volume_set_from_allocation (volume, self);
+
+  actor = mx_widget_get_background_image (widget);
+  if (actor != NULL)
+    {
+      child_volume =
+        clutter_actor_get_transformed_paint_volume (actor, self);
+
+      if (child_volume == NULL)
+        return FALSE;
+
+      clutter_paint_volume_union (volume, child_volume);
+    }
+
+  actor = mx_widget_get_border_image (widget);
+  if (actor != NULL)
+    {
+      child_volume =
+        clutter_actor_get_transformed_paint_volume (actor, self);
+
+      if (child_volume == NULL)
+        return FALSE;
+
+      clutter_paint_volume_union (volume, child_volume);
+    }
+
+  return TRUE;
+}
+
 static void
 mx_stylable_iface_init (MxStylableIface *iface)
 {
@@ -298,6 +335,7 @@ mx_spinner_class_init (MxSpinnerClass *klass)
   actor_class->get_preferred_width = mx_spinner_get_preferred_width;
   actor_class->get_preferred_height = mx_spinner_get_preferred_height;
   actor_class->paint = mx_spinner_paint;
+  actor_class->get_paint_volume = mx_spinner_get_paint_volume;
 
   pspec = g_param_spec_boolean ("animating",
                                 "Animating",

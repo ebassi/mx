@@ -419,6 +419,13 @@ mx_tooltip_paint (ClutterActor *self)
   clutter_actor_paint (priv->label);
 }
 
+static gboolean
+mx_tooltip_get_paint_volume (ClutterActor       *self,
+                             ClutterPaintVolume *volume)
+{
+  return FALSE;
+}
+
 static void
 mx_tooltip_stage_paint_cb (ClutterActor *stage, MxTooltip *self)
 {
@@ -518,6 +525,7 @@ mx_tooltip_class_init (MxTooltipClass *klass)
   actor_class->allocate = mx_tooltip_allocate;
   actor_class->map = mx_tooltip_map;
   actor_class->unmap = mx_tooltip_unmap;
+  actor_class->get_paint_volume = mx_tooltip_get_paint_volume;
 
   floating_class->floating_paint = mx_tooltip_paint;
 

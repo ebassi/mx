@@ -511,6 +511,13 @@ mx_widget_pick (ClutterActor *self, const ClutterColor *color)
     clutter_actor_paint (CLUTTER_ACTOR (priv->menu));
 }
 
+static gboolean
+mx_widget_get_paint_volume (ClutterActor       *self,
+                            ClutterPaintVolume *volume)
+{
+  return FALSE;
+}
+
 static void
 mx_widget_map (ClutterActor *actor)
 {
@@ -1068,6 +1075,7 @@ mx_widget_class_init (MxWidgetClass *klass)
   actor_class->pick = mx_widget_pick;
   actor_class->map = mx_widget_map;
   actor_class->unmap = mx_widget_unmap;
+  actor_class->get_paint_volume = mx_widget_get_paint_volume;
 
   actor_class->enter_event = mx_widget_enter;
   actor_class->leave_event = mx_widget_leave;

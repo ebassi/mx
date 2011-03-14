@@ -1414,6 +1414,55 @@ mx_box_layout_pick (ClutterActor       *actor,
     }
 }
 
+static gboolean
+mx_box_layout_get_paint_volume (ClutterActor       *self,
+                                ClutterPaintVolume *volume)
+{
+  MxBoxLayoutPrivate *priv = MX_BOX_LAYOUT (self)->priv;
+  MxWidget *widget = MX_WIDGET (self);
+  ClutterActor *actor;
+  const ClutterPaintVolume *child_volume;
+  GList *l;
+
+  clutter_paint_volume_set_from_allocation (volume, self);
+
+  actor = mx_widget_get_background_image (widget);
+  if (actor != NULL)
+    {
+      child_volume = clutter_actor_get_transformed_paint_volume (actor, self);
+      if (child_volume == NULL)
+        return FALSE;
+
+      clutter_paint_volume_union (volume, child_volume);
+    }
+
+  actor = mx_widget_get_border_image (widget);
+  if (actor != NULL)
+    {
+      child_volume = clutter_actor_get_transformed_paint_volume (actor, self);
+      if (child_volume == NULL)
+        return FALSE;
+
+      clutter_paint_volume_union (volume, child_volume);
+    }
+
+  for (l = priv->children; l != NULL; l = l->next)
+    {
+      ClutterActor *child = l->data;
+
+      if (!CLUTTER_ACTOR_IS_VISIBLE (child))
+        continue;
+
+      child_volume = clutter_actor_get_transformed_paint_volume (child, self);
+      if (child_volume == NULL)
+        return FALSE;
+
+      clutter_paint_volume_union (volume, child_volume);
+    }
+
+  return TRUE;
+}
+
 static void
 mx_box_layout_class_init (MxBoxLayoutClass *klass)
 {
@@ -1432,6 +1481,7 @@ mx_box_layout_class_init (MxBoxLayoutClass *klass)
   actor_class->get_preferred_width = mx_box_layout_get_preferred_width;
   actor_class->get_preferred_height = mx_box_layout_get_preferred_height;
   actor_class->apply_transform = mx_box_layout_apply_transform;
+  actor_class->get_paint_volume = mx_box_layout_get_paint_volume;
 
   actor_class->paint = mx_box_layout_paint;
   actor_class->pick = mx_box_layout_pick;

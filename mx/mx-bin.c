@@ -216,6 +216,55 @@ mx_bin_pick (ClutterActor       *self,
     clutter_actor_paint (priv->child);
 }
 
+static gboolean
+mx_bin_get_paint_volume (ClutterActor       *self,
+                         ClutterPaintVolume *volume)
+{
+  MxBinPrivate *priv = MX_BIN (self)->priv;
+  MxWidget *widget = MX_WIDGET (self);
+  const ClutterPaintVolume *child_volume;
+  ClutterActor *actor;
+
+  clutter_paint_volume_set_from_allocation (volume, self);
+
+  actor = mx_widget_get_background_image (widget);
+  if (actor != NULL)
+    {
+      child_volume =
+        clutter_actor_get_transformed_paint_volume (actor, self);
+
+      if (child_volume == NULL)
+        return FALSE;
+
+      clutter_paint_volume_union (volume, child_volume);
+    }
+
+  actor = mx_widget_get_border_image (widget);
+  if (actor != NULL)
+    {
+      child_volume =
+        clutter_actor_get_transformed_paint_volume (actor, self);
+
+      if (child_volume == NULL)
+        return FALSE;
+
+      clutter_paint_volume_union (volume, child_volume);
+    }
+
+  if (priv->child != NULL)
+    {
+      child_volume =
+        clutter_actor_get_transformed_paint_volume (priv->child, self);
+
+      if (child_volume == NULL)
+        return FALSE;
+
+      clutter_paint_volume_union (volume, child_volume);
+    }
+
+  return TRUE;
+}
+
 /**
  * mx_bin_allocate_child:
  * @bin: An #MxBin
@@ -454,6 +503,7 @@ mx_bin_class_init (MxBinClass *klass)
   actor_class->get_preferred_height = mx_bin_get_preferred_height;
   actor_class->paint = mx_bin_paint;
   actor_class->pick = mx_bin_pick;
+  actor_class->get_paint_volume = mx_bin_get_paint_volume;
 
   /**
    * MxBin:child:
