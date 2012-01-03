@@ -302,14 +302,10 @@ fade_in_actor (ClutterActor *actor)
 }
 
 static void
-mx_box_container_add_actor (ClutterContainer *container,
-                            ClutterActor     *actor)
+mx_box_container_actor_added (ClutterContainer *container,
+                              ClutterActor     *actor)
 {
   MxBoxLayoutPrivate *priv = MX_BOX_LAYOUT (container)->priv;
-
-  clutter_actor_set_parent (actor, CLUTTER_ACTOR (container));
-
-  priv->children = g_list_append (priv->children, actor);
 
   if (priv->enable_animations)
     {
@@ -323,146 +319,28 @@ mx_box_container_add_actor (ClutterContainer *container,
                                     G_CALLBACK (fade_in_actor), actor);
         }
     }
-
-  g_signal_emit_by_name (container, "actor-added", actor);
 }
 
 static void
-mx_box_container_remove_actor (ClutterContainer *container,
-                               ClutterActor     *actor)
+mx_box_container_actor_removed (ClutterContainer *container,
+                                ClutterActor     *actor)
 {
   MxBoxLayoutPrivate *priv = MX_BOX_LAYOUT (container)->priv;
 
-  GList *item = NULL;
-
-  item = g_list_find (priv->children, actor);
-
-  if (item == NULL)
-    {
-      g_warning ("Actor of type '%s' is not a child of container of type '%s'",
-                 g_type_name (G_OBJECT_TYPE (actor)),
-                 g_type_name (G_OBJECT_TYPE (container)));
-      return;
-    }
-
-  g_object_ref (actor);
-
   if ((ClutterActor *)priv->last_focus == actor)
     priv->last_focus = NULL;
-
-  priv->children = g_list_delete_link (priv->children, item);
-  clutter_actor_unparent (actor);
 
   if (priv->enable_animations)
     _mx_box_layout_start_animation (MX_BOX_LAYOUT (container));
   else
     clutter_actor_queue_relayout ((ClutterActor *) container);
-
-  g_signal_emit_by_name (container, "actor-removed", actor);
-
-  g_object_unref (actor);
-}
-
-static void
-mx_box_container_foreach (ClutterContainer *container,
-                          ClutterCallback   callback,
-                          gpointer          callback_data)
-{
-  MxBoxLayoutPrivate *priv = MX_BOX_LAYOUT (container)->priv;
-  ClutterActor       *child;
-  GList              *list;
-
-  list = priv->children;
-  while (list)
-    {
-      child = list->data;
-      list  = list->next;
-
-      callback (child, callback_data);
-    }
-}
-
-/*
- * Implementations for raise, lower and sort_by_depth_order are taken from
- * ClutterBox.
- */
-static void
-mx_box_container_lower (ClutterContainer *container,
-                        ClutterActor     *actor,
-                        ClutterActor     *sibling)
-{
-  MxBoxLayoutPrivate *priv = MX_BOX_LAYOUT (container)->priv;
-
-  priv->children = g_list_remove (priv->children, actor);
-
-  if (sibling == NULL)
-    priv->children = g_list_prepend (priv->children, actor);
-  else
-    {
-      gint index_ = g_list_index (priv->children, sibling);
-
-      priv->children = g_list_insert (priv->children, actor, index_);
-    }
-
-  clutter_actor_queue_relayout (CLUTTER_ACTOR (container));
-}
-
-static void
-mx_box_container_raise (ClutterContainer *container,
-                        ClutterActor     *actor,
-                        ClutterActor     *sibling)
-{
-  MxBoxLayoutPrivate *priv = MX_BOX_LAYOUT (container)->priv;
-
-  priv->children = g_list_remove (priv->children, actor);
-
-  if (sibling == NULL)
-    priv->children = g_list_append (priv->children, actor);
-  else
-    {
-      gint index_ = g_list_index (priv->children, sibling) + 1;
-
-      priv->children = g_list_insert (priv->children, actor, index_);
-    }
-
-  clutter_actor_queue_relayout (CLUTTER_ACTOR (container));
-}
-
-static gint
-sort_by_depth (gconstpointer a,
-               gconstpointer b)
-{
-  gfloat depth_a = clutter_actor_get_depth ((ClutterActor *) a);
-  gfloat depth_b = clutter_actor_get_depth ((ClutterActor *) b);
-
-  if (depth_a < depth_b)
-    return -1;
-
-  if (depth_a > depth_b)
-    return 1;
-
-  return 0;
-}
-
-static void
-mx_box_container_sort_depth_order (ClutterContainer *container)
-{
-  MxBoxLayoutPrivate *priv = MX_BOX_LAYOUT (container)->priv;
-
-  priv->children = g_list_sort (priv->children, sort_by_depth);
-
-  clutter_actor_queue_relayout (CLUTTER_ACTOR (container));
 }
 
 static void
 mx_box_container_iface_init (ClutterContainerIface *iface)
 {
-  iface->add = mx_box_container_add_actor;
-  iface->remove = mx_box_container_remove_actor;
-  iface->foreach = mx_box_container_foreach;
-  iface->lower = mx_box_container_lower;
-  iface->raise = mx_box_container_raise;
-  iface->sort_depth_order = mx_box_container_sort_depth_order;
+  iface->actor_added = mx_box_container_actor_added;
+  iface->remove = mx_box_container_actor_removed;
 
   iface->child_meta_type = MX_TYPE_BOX_LAYOUT_CHILD;
 }
@@ -1753,19 +1631,6 @@ mx_box_layout_set_property_valist (MxBoxLayout  *box,
     }
 }
 
-static void
-mx_box_layout_create_child_meta (MxBoxLayout  *box,
-                                 ClutterActor *actor)
-{
-  ClutterContainer *container = CLUTTER_CONTAINER (box);
-  ClutterContainerIface *iface = CLUTTER_CONTAINER_GET_IFACE (container);
-
-  g_assert (g_type_is_a (iface->child_meta_type, MX_TYPE_BOX_LAYOUT_CHILD));
-
-  if (G_LIKELY (iface->create_child_meta))
-      iface->create_child_meta (container, actor);
-}
-
 /**
  * mx_box_layout_add_actor:
  * @box: a #MxBoxLayout
@@ -1779,39 +1644,10 @@ mx_box_layout_add_actor (MxBoxLayout  *box,
                          ClutterActor *actor,
                          gint          position)
 {
-  MxBoxLayoutPrivate *priv;
-
   g_return_if_fail (MX_IS_BOX_LAYOUT (box));
   g_return_if_fail (CLUTTER_IS_ACTOR (actor));
 
-  priv = box->priv;
-
-  /* this is really mx_box_container_add_actor() with a different insert() */
-  priv->children = g_list_insert (priv->children,
-                                  actor,
-                                  position);
-  mx_box_layout_create_child_meta (box, actor);
-  clutter_actor_set_parent (actor, (ClutterActor*) box);
-
-  if (priv->enable_animations)
-    {
-      _mx_box_layout_start_animation (box);
-
-      if (priv->timeline)
-        {
-          /* fade in the new actor when there is room */
-          clutter_actor_set_opacity (actor, 0);
-          g_signal_connect_swapped (priv->timeline, "completed",
-                                    G_CALLBACK (fade_in_actor), actor);
-        }
-    }
-  else
-    {
-      clutter_actor_queue_relayout ((ClutterActor *) box);
-    }
-
-  g_signal_emit_by_name (box, "actor-added", actor);
-
+  clutter_actor_insert_child_at_index (CLUTTER_ACTOR (box), actor, position);
 }
 
 /**
