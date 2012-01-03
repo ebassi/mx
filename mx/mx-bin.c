@@ -154,22 +154,10 @@ mx_bin_remove (ClutterContainer *container,
 }
 
 static void
-mx_bin_foreach (ClutterContainer *container,
-                ClutterCallback   callback,
-                gpointer          user_data)
-{
-  MxBinPrivate *priv = MX_BIN (container)->priv;
-
-  if (priv->child)
-    callback (priv->child, user_data);
-}
-
-static void
 clutter_container_iface_init (ClutterContainerIface *iface)
 {
   iface->add = mx_bin_add;
   iface->remove = mx_bin_remove;
-  iface->foreach = mx_bin_foreach;
 }
 
 static MxFocusable*
@@ -557,22 +545,14 @@ mx_bin_set_child (MxBin        *bin,
     {
       ClutterActor *old_child = priv->child;
 
-      g_object_ref (old_child);
-
       priv->child = NULL;
-      clutter_actor_unparent (old_child);
-
-      g_signal_emit_by_name (bin, "actor-removed", old_child);
-
-      g_object_unref (old_child);
+      clutter_actor_remove_child (CLUTTER_ACTOR (bin), old_child);
     }
 
   if (child)
     {
       priv->child = child;
-      clutter_actor_set_parent (child, CLUTTER_ACTOR (bin));
-
-      g_signal_emit_by_name (bin, "actor-added", priv->child);
+      clutter_actor_add_child (CLUTTER_ACTOR (bin), child);
     }
 
   clutter_actor_queue_relayout (CLUTTER_ACTOR (bin));
