@@ -686,10 +686,10 @@ mx_actor_manager_handle_op (MxActorManager *manager)
         g_signal_emit (manager, signals[ACTOR_CREATED], 0,
                        op->id, actor);
       else
-        error = g_error_new (actor_manager_error_quark,
-                             MX_ACTOR_MANAGER_CREATION_FAILED,
-                             "Actor creation function did not "
-                             "return a ClutterActor");
+        error = g_error_new_literal (actor_manager_error_quark,
+                                     MX_ACTOR_MANAGER_CREATION_FAILED,
+                                     "Actor creation function did not "
+                                     "return a ClutterActor");
       break;
 
     case MX_ACTOR_MANAGER_ADD:
@@ -697,19 +697,20 @@ mx_actor_manager_handle_op (MxActorManager *manager)
         {
           if (op->actor)
             {
-              clutter_container_add_actor (op->container, op->actor);
+              clutter_actor_add_child (CLUTTER_ACTOR (op->container),
+                                       op->actor);
               g_signal_emit (manager, signals[ACTOR_ADDED], 0,
                              op->id, op->container, op->actor);
             }
           else
-            error = g_error_new (actor_manager_error_quark,
-                                 MX_ACTOR_MANAGER_ACTOR_DESTROYED,
-                                 "Actor destroyed before addition");
+            error = g_error_new_literal (actor_manager_error_quark,
+                                         MX_ACTOR_MANAGER_ACTOR_DESTROYED,
+                                         "Actor destroyed before addition");
         }
       else
-        error = g_error_new (actor_manager_error_quark,
-                             MX_ACTOR_MANAGER_CONTAINER_DESTROYED,
-                             "Container destroyed before addition");
+        error = g_error_new_literal (actor_manager_error_quark,
+                                     MX_ACTOR_MANAGER_CONTAINER_DESTROYED,
+                                     "Container destroyed before addition");
       break;
 
     case MX_ACTOR_MANAGER_REMOVE:
@@ -717,37 +718,38 @@ mx_actor_manager_handle_op (MxActorManager *manager)
         {
           if (op->actor)
             {
-              clutter_container_remove_actor (op->container, op->actor);
+              clutter_actor_remove_child (CLUTTER_ACTOR (op->container),
+                                          op->actor);
               g_signal_emit (manager, signals[ACTOR_REMOVED], 0,
                              op->id, op->container, op->actor);
             }
           else
-            error = g_error_new (actor_manager_error_quark,
-                                 MX_ACTOR_MANAGER_ACTOR_DESTROYED,
-                                 "Actor destroyed before removal");
+            error = g_error_new_literal (actor_manager_error_quark,
+                                         MX_ACTOR_MANAGER_ACTOR_DESTROYED,
+                                         "Actor destroyed before removal");
         }
       else
-        error = g_error_new (actor_manager_error_quark,
-                             MX_ACTOR_MANAGER_CONTAINER_DESTROYED,
-                             "Container destroyed before removal");
+        error = g_error_new_literal (actor_manager_error_quark,
+                                     MX_ACTOR_MANAGER_CONTAINER_DESTROYED,
+                                     "Container destroyed before removal");
       break;
 
     case MX_ACTOR_MANAGER_UNREF:
       if (op->actor)
         g_object_unref (op->actor);
       else
-        error = g_error_new (actor_manager_error_quark,
-                             MX_ACTOR_MANAGER_ACTOR_DESTROYED,
-                             "Actor destroyed before unref");
+        error = g_error_new_literal (actor_manager_error_quark,
+                                     MX_ACTOR_MANAGER_ACTOR_DESTROYED,
+                                     "Actor destroyed before unref");
       break;
 
     default:
       g_warning (G_STRLOC ": Unrecognised operation type (%d) "
                  "- Memory corruption?)", op->type);
-      error = g_error_new (actor_manager_error_quark,
-                           MX_ACTOR_MANAGER_UNKNOWN_OPERATION,
-                           "Unrecognised operation, possibly due to "
-                           "memory corruption.");
+      error = g_error_new_literal (actor_manager_error_quark,
+                                   MX_ACTOR_MANAGER_UNKNOWN_OPERATION,
+                                   "Unrecognised operation, possibly due to "
+                                   "memory corruption.");
       break;
     }
 
@@ -970,8 +972,7 @@ void
 mx_actor_manager_remove_container (MxActorManager   *manager,
                                    ClutterContainer *container)
 {
-  GList *children;
-  ClutterActor *parent;
+  ClutterActor *parent, *child;
 
   g_return_if_fail (MX_IS_ACTOR_MANAGER (manager));
   g_return_if_fail (CLUTTER_IS_CONTAINER (container));
@@ -980,17 +981,19 @@ mx_actor_manager_remove_container (MxActorManager   *manager,
   mx_actor_manager_cancel_operations (manager, CLUTTER_ACTOR (container));
 
   /* Remove all children */
-  children = clutter_container_get_children (container);
-  while (children)
+  child = clutter_actor_get_first_child (CLUTTER_ACTOR (container));
+  while (child != NULL)
     {
-      ClutterActor *child = children->data;
+      ClutterActor *next = clutter_actor_get_next_sibling (child);
+
       mx_actor_manager_op_new (manager,
                                MX_ACTOR_MANAGER_REMOVE,
                                NULL,
                                NULL,
                                child,
                                container);
-      children = g_list_delete_link (children, children);
+
+      child = next;
     }
 
   /* Then remove the container */
@@ -998,8 +1001,8 @@ mx_actor_manager_remove_container (MxActorManager   *manager,
   if (parent && CLUTTER_IS_CONTAINER (parent))
     {
       g_object_ref (container);
-      clutter_container_remove_actor (CLUTTER_CONTAINER (parent),
-                                      CLUTTER_ACTOR (container));
+      clutter_actor_remove_child (parent, CLUTTER_ACTOR (container));
+
       mx_actor_manager_op_new (manager,
                                MX_ACTOR_MANAGER_UNREF,
                                NULL,
